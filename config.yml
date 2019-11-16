@@ -1,0 +1,13 @@
+---
+# Absolute path for local files
+local_path: '/Users/jason/PycharmProjects/bq-nvd/'
+
+# GCS bucket that will be used for storing NVD json files and
+# BQ newline delimited json load files
+bucket_name: 'redteam_bq-nvd'
+
+# BigQuery dataset name
+dataset: 'nvd_test'
+
+# Relative path to BigQuery NVD dataset schema
+nvd_schema: './schema.json'
