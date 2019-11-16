@@ -8,8 +8,9 @@ from google.cloud.exceptions import Conflict, GoogleCloudError
 
 class ETL(object):
 
-  def __init__(self, path):
-    self.path = path
+  def __init__(self, config):
+    self.config = config
+    self.path = self.config['local_path']
 
   @staticmethod
   def extract(filename):
@@ -43,7 +44,7 @@ class ETL(object):
 
     return nvd_dict
 
-  def transform(self, nvd_dict, filename):
+  def transform(self, nvd_dict, filename, bq, deltas_only=False):
     """Transforms deserialized NVD data into newline delmited json for BQ import
 
     Args:
@@ -61,9 +62,17 @@ class ETL(object):
     # We can discard the metadata contained in the CVE_data* keys.
     # CVE_Items has what we want.
     cve_list = nvd_dict['CVE_Items']
+    scrubbed_list = []
 
-    try:
+    if deltas_only:
+      cveids = bq.get_cve_ids(self.config['dataset'])
       for cve in cve_list:
+        if cve['cve']['CVE_data_meta']['ID'] not in cveids:
+          scrubbed_list.append(cve)
+    else:
+      scrubbed_list = cve_list
+    try:
+      for cve in scrubbed_list:
         with open(local_file, 'a') as f:
           f.write(json.dumps(cve, indent=None, separators=(',', ':')) + '\n')
     except IOError as e:
@@ -72,7 +81,7 @@ class ETL(object):
 
     return local_file
 
-  def load(self, filename, bucket_name, deltas_only=False):
+  def load(self, filename, bucket_name):
     """Load the NVD data into BQ by way of a GCS bulk load
 
     Args:
@@ -98,11 +107,7 @@ class ETL(object):
     except GoogleCloudError as e:
       raise e
 
-    if deltas_only:
-      pass
-    else:
-      pass
-
+    self.bq_load_from_gcs(self.config['dataset'], blob)
 
   def bq_load_from_gcs(self, dataset, blob):
     pass

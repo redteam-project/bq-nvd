@@ -21,7 +21,7 @@ class BQNVD(object):
       except yaml.YAMLError as e:
         self.print_error_and_exit('yaml config load failed', str(e), 1)
     self.d = Download()
-    self.etl = ETL(self.config['local_path'])
+    self.etl = ETL(self.config)
     try:
       self.bq = BQ(self.config)
     except DefaultCredentialsError as e:
@@ -59,10 +59,13 @@ class BQNVD(object):
     else:
       return False
 
-  def transform(self, downloaded_filename):
+  def transform(self, downloaded_filename, deltas_only=False):
     try:
       nvd_data = self.etl.extract(downloaded_filename)
-      transformed_local_filename = self.etl.transform(nvd_data, 'recent')
+      transformed_local_filename = self.etl.transform(nvd_data,
+                                                      'recent',
+                                                      self.bq,
+                                                      deltas_only)
     except (ValueError, TypeError, JSONDecodeError) as e:
       self.print_error_and_exit('extraction failed for ' + downloaded_filename, e, 1)
 
@@ -74,15 +77,13 @@ class BQNVD(object):
     except (Conflict, GoogleCloudError) as e:
       self.print_error_and_exit('load failed for ' + transformed_local_filename, e, 1)
 
-  def load_deltas(self, transformed_local_filename):
-    # todo: bq load the deltas
-
   def incremental(self):
     local_path = self.config['local_path']
     bucket_name = self.config['bucket_name']
 
     downloaded_filename = self.download('recent')
-    transformed_local_filename = self.transform(downloaded_filename)
+    transformed_local_filename = self.transform(downloaded_filename,
+                                                deltas_only=True)
     self.load(transformed_local_filename)
 
 def main():
