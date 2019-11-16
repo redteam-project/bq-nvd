@@ -81,7 +81,7 @@ class ETL(object):
 
     return local_file
 
-  def load(self, filename, bucket_name):
+  def load(self, bq, filename, bucket_name):
     """Load the NVD data into BQ by way of a GCS bulk load
 
     Args:
@@ -101,13 +101,23 @@ class ETL(object):
       # the bucket already exists, and that's ok
       bucket = storage_client.get_bucket(bucket_name)
 
-    try:
-      blob = bucket.blob(os.path.basename(filename))
-      blob.upload_from_filename(filename)
-    except GoogleCloudError as e:
-      raise e
+    keep_trying = True
+    try_count = 0
+    while keep_trying:
+      try:
+        blob = bucket.blob(os.path.basename(filename))
+        blob.upload_from_filename(filename)
+        keep_trying = False
+      except Exception as e:
+        # i know, i know
+        try_count += 1
+        if try_count < 3:
+          pass
+        else:
+          raise e
 
-    self.bq_load_from_gcs(self.config['dataset'], blob)
+    self.bq_load_from_gcs(bq, self.config['dataset'], filename, bucket_name)
 
-  def bq_load_from_gcs(self, dataset, blob):
-    pass
+  def bq_load_from_gcs(self, bq, dataset, filename, bucket_name):
+    uri = 'gs://' + bucket_name + '/' + os.path.basename(filename)
+    bq.load_from_gcs(dataset, uri)

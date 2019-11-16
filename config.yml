@@ -6,7 +6,8 @@ local_path: '/Users/jason/PycharmProjects/bq-nvd/'
 # BQ newline delimited json load files
 bucket_name: 'redteam_bq-nvd'
 
-# BigQuery dataset name
+# BigQuery project and dataset names
+project: 'red-team-project'
 dataset: 'nvd_test'
 
 # Relative path to BigQuery NVD dataset schema

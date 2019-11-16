@@ -131,4 +131,4 @@ dmypy.json
 .idea/
 secrets/
 *.json.gz
-recent_newline.json
+*_newline.json

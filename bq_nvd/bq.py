@@ -1,6 +1,6 @@
 import json
 
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import NotFound, Conflict
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import bigquery
 
@@ -9,8 +9,9 @@ class BQ(object):
 
   def __init__(self, config):
     self.config = config
+    self.project = self.config['project']
     try:
-      self.client = bigquery.Client()
+      self.client = bigquery.Client(project=self.project)
     except DefaultCredentialsError as e:
       raise e
 
@@ -87,11 +88,20 @@ class BQ(object):
     Raises:
       None
     """
-    d = bigquery.Dataset(dataset_name)
-    dataset = self.client.create_dataset(d)
-    t = dataset.table('nvd')
-    table = self.client.Table(t, schema=self.parse_bq_json_schema())
-    self.client.create_table(table)
+    project_name = self.config['project']
+    table_name = project_name + '.' + dataset_name + '.nvd'
+    try:
+      d = bigquery.Dataset(project_name + '.' + dataset_name)
+      dataset = self.client.create_dataset(d)
+    except Conflict:
+      # it's ok, it already exists
+      pass
+    try:
+      t = bigquery.Table(table_name, schema=self.parse_bq_json_schema())
+      table = self.client.create_table(t)
+    except Conflict:
+      # it's ok, it already exists
+      pass
 
   def count_cves(self, dataset):
     """Counts the CVEs present in the specified BQ NVD dataset
@@ -151,3 +161,21 @@ class BQ(object):
       raise e
 
     return cve_list
+
+  def load_from_gcs(self, dataset, uri):
+    project_name = self.config['project']
+    dataset_name = project_name + '.' + dataset
+    table_name = 'nvd'
+
+    # dataset_ref = self.client.dataset(dataset_name)
+    dataset_ref = self.client.dataset(dataset)
+    job_config = bigquery.LoadJobConfig()
+    job_config.schema = self.parse_bq_json_schema()
+    job_config.source_format = bigquery.SourceFormat.NEWLINE_DELIMITED_JSON
+    load_job = self.client.load_table_from_uri(
+        uri,
+        dataset_ref.table(table_name),
+        job_config=job_config,
+    )
+
+

@@ -1,5 +1,7 @@
+import os
 import yaml
 import sys
+import traceback
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.error import ContentTooShortError
@@ -28,18 +30,25 @@ class BQNVD(object):
       self.print_error_and_exit('error initializing BQ client: ', str(e), 1)
 
   @staticmethod
+  def print_debug(message):
+    print('+++ bq-ndv.py debug: ' + message)
+
+  @staticmethod
   def print_error_and_exit(message, exception, signal):
     print(message + ': ' + str(exception))
+    traceback.print_exc(file=sys.stdout)
     sys.exit(signal)
 
   def bootstrap(self):
+    self.print_debug('bootstrapping')
     current_year = datetime.now().year
     for year in range(2002, current_year + 1):
-      downloaded_filename = self.download(year)
+      downloaded_filename = self.download(str(year))
       transformed_local_filename = self.transform(downloaded_filename)
       self.load(transformed_local_filename)
 
   def download(self, name):
+    self.print_debug('downloading ' + name)
     try:
       downloaded_filename = self.d.download(name, self.config['local_path'])
     except ContentTooShortError as e:
@@ -60,10 +69,12 @@ class BQNVD(object):
       return False
 
   def transform(self, downloaded_filename, deltas_only=False):
+    self.print_debug('transforming ' + downloaded_filename)
     try:
       nvd_data = self.etl.extract(downloaded_filename)
       transformed_local_filename = self.etl.transform(nvd_data,
-                                                      'recent',
+                                                      os.path.basename(
+                                                          downloaded_filename),
                                                       self.bq,
                                                       deltas_only)
     except (ValueError, TypeError, JSONDecodeError) as e:
@@ -72,8 +83,9 @@ class BQNVD(object):
     return transformed_local_filename
 
   def load(self, transformed_local_filename):
+    self.print_debug('loading ' + transformed_local_filename)
     try:
-      self.etl.load(transformed_local_filename, self.config['bucket_name'])
+      self.etl.load(self.bq, transformed_local_filename, self.config['bucket_name'])
     except (Conflict, GoogleCloudError) as e:
       self.print_error_and_exit('load failed for ' + transformed_local_filename, e, 1)
 
