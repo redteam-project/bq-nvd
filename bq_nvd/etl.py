@@ -7,10 +7,15 @@ from google.cloud.exceptions import Conflict, GoogleCloudError
 
 
 class ETL(object):
+  """Extract / Transform / Load object.
+
+  Attributes:
+    config: configuration data
+  """
 
   def __init__(self, config):
+    """Initialize ETL object with config data."""
     self.config = config
-    self.path = self.config['local_path']
 
   @staticmethod
   def extract(filename):
@@ -58,12 +63,13 @@ class ETL(object):
                    extant CVEs
 
     Returns:
-      local_file: absolute path of newline delimited json
+      local_file: absolute path of newline delimited json, or None if no udpates
 
     Raises:
       IOError: on failed write to json file
     """
-    local_file = self.path + \
+    path = self.config['local_path']
+    local_file = path + \
                  filename.replace('.json.gz', '') + \
                  '_newline.json'
 
@@ -85,6 +91,11 @@ class ETL(object):
       # If we're not doing a deltas_only transform, we just take the whole
       # cve_list
       scrubbed_list = cve_list
+
+    # There may be no updates since the last time we ran
+    if len(scrubbed_list) == 0:
+      return None
+
     try:
       # The file may already exist, but we want to start with an empty one
       if os.path.isfile(local_file):

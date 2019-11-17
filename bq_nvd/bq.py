@@ -6,12 +6,18 @@ from google.cloud import bigquery
 
 
 class BQ(object):
+  """BigQuery object.
+
+  Attributes:
+    config: configuration data
+    client: BQ client driver
+  """
 
   def __init__(self, config):
+    """Initialize BQ object with config data and BQ driver."""
     self.config = config
-    self.project = self.config['project']
     try:
-      self.client = bigquery.Client(project=self.project)
+      self.client = bigquery.Client(project=self.config['project'])
     except DefaultCredentialsError as e:
       raise e
 

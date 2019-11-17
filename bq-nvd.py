@@ -15,56 +15,60 @@ from bq_nvd.etl import ETL
 
 
 class BQNVD(object):
+  """Driver clas for BigQuery National Vulnerability Database (BQ-NVD)."""
 
   def __init__(self):
-    # todo: when kube-ifying this, make all config settings environment vars
-    with open('./config.yml', 'r') as f:
-      try:
-        self.config = yaml.safe_load(f)
-      except yaml.YAMLError as e:
-        self.print_error_and_exit('yaml config load failed', str(e), 1)
-    self.d = Download()
+    """Init BQNVD class with config values and initialize module objects."""
+
+    # Get config values from OS environment variables, if they don't exist,
+    # load them from yaml config file.
+    # Note: this is to support local running or GKE.
+    self.config = {}
+    load_from_yaml = False
+    var_names = ['local_path',
+                 'bucket_name',
+                 'project',
+                 'dataset',
+                 'nvd_schema',
+                 'url_base',
+                 'file_prefix',
+                 'file_suffix']
+    for var in var_names:
+      if os.environ.get(var):
+        self.config[var] = os.environ.get(var)
+      else:
+        load_from_yaml = True
+
+    if load_from_yaml:
+      with open('./config.yml', 'r') as f:
+        try:
+          self.config = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+          self.print_error_and_exit('yaml config load failed', str(e), 1)
+
+    # Initialize our download, ETL, and BQ objects
+    self.d = Download(self.config)
     self.etl = ETL(self.config)
     try:
       self.bq = BQ(self.config)
     except DefaultCredentialsError as e:
       self.print_error_and_exit('error initializing BQ client: ', str(e), 1)
 
-  # todo: make more clear and comment
-
   @staticmethod
   def print_debug(message):
-    # debugging to stdout because this is going in GKE and Stackdriver will
-    # pick it up that way
+    """Print debug messages to stdout in expectation of Stackdriver getting
+    container logs from GKE."""
     print('+++ bq-ndv.py debug: ' + message)
 
   @staticmethod
   def print_error_and_exit(message, exception, signal):
-    # Same deal as print_debug, we want this to go to stdout so Stackdriver
-    # logging will capture it from GKE
+    """Helper funciton to print stack trace and exit 1"""
     print(message + ': ' + str(exception))
     traceback.print_exc(file=sys.stdout)
     sys.exit(signal)
 
-  def bootstrap(self):
-    # process the entirety of NVD
-    self.print_debug('bootstrapping')
-    current_year = datetime.now().year
-
-    for year in range(2002, current_year + 1):
-      downloaded_filename = self.download(str(year))
-      transformed_local_filename = self.transform(downloaded_filename)
-      self.load(transformed_local_filename)
-
-  def download(self, name):
-    self.print_debug('downloading ' + name)
-    try:
-      downloaded_filename = self.d.download(name, self.config['local_path'])
-    except ContentTooShortError as e:
-      self.print_error_and_exit('download failed', e, 1)
-    return downloaded_filename
-
   def check_bootstrap(self):
+    """Determine if we're in a greenfield or brownfield environment."""
     dataset = self.config['dataset']
     try:
       cve_count = self.bq.count_cves(dataset)
@@ -80,36 +84,81 @@ class BQNVD(object):
     else:
       return False
 
-  def transform(self, downloaded_filename):
-    self.print_debug('transforming ' + downloaded_filename)
+  def bootstrap(self):
+    """Process the entirety of NVD."""
+    self.print_debug('bootstrapping')
+    current_year = datetime.now().year
+
+    for year in range(2002, current_year + 1):
+      downloaded_filename = self.download(str(year))
+      nvd_dict = self.extract(downloaded_filename)
+      transformed_local_filename = self.transform(nvd_dict)
+      self.load(transformed_local_filename)
+
+  def incremental(self):
+    """Do an incremental update."""
+    self.print_debug('doing incremental update')
+    downloaded_filename = self.download('recent')
+    nvd_dict = self.extract(downloaded_filename)
+    transformed_local_filename = self.transform(nvd_dict, downloaded_filename)
+    self.load(transformed_local_filename)
+
+  def download(self, name):
+    """Step 1 - Download the NVD json feed."""
+    self.print_debug('downloading ' + name)
     try:
-      nvd_data = self.etl.extract(downloaded_filename)
-      transformed_local_filename = self.etl.transform(nvd_data,
+      local_path = self.config['local_path']
+      downloaded_filename = self.d.download(name, local_path)
+    except ContentTooShortError as e:
+      self.print_error_and_exit('download failed', e, 1)
+    return downloaded_filename
+
+  def extract(self, downloaded_filename):
+    """Step 2 - Decompress tar.gz json data and return a dict."""
+    self.print_debug('extracting ' + downloaded_filename)
+    try:
+      nvd_dict = self.etl.extract(downloaded_filename)
+    except (ValueError, TypeError, JSONDecodeError) as e:
+      self.print_error_and_exit('extraction failed for ' + downloaded_filename,
+                                e, 1)
+    return nvd_dict
+
+  def transform(self, nvd_dict, downloaded_filename):
+    """Step 3 - Transform the dict into newline delimited json."""
+    self.print_debug('transforming nvd_data')
+    try:
+      transformed_local_filename = self.etl.transform(nvd_dict,
                                                       os.path.basename(
                                                           downloaded_filename),
                                                       self.bq)
-    except (ValueError, TypeError, JSONDecodeError) as e:
+    except IOError as e:
       self.print_error_and_exit('extraction failed for ' + downloaded_filename, e, 1)
 
     return transformed_local_filename
 
   def load(self, transformed_local_filename):
+    """Step 4 - Load the json into GCS and import to BQ."""
+    if transformed_local_filename is None:
+      self.print_debug('no updates to load')
+      return
+
     self.print_debug('loading ' + transformed_local_filename)
     try:
-      self.etl.load(self.bq, transformed_local_filename, self.config['bucket_name'])
+      bucket_name = self.config['bucket_name']
+      self.etl.load(self.bq, transformed_local_filename, bucket_name)
     except (Conflict, GoogleCloudError) as e:
       self.print_error_and_exit('load failed for ' + transformed_local_filename, e, 1)
 
-  def incremental(self):
-    local_path = self.config['local_path']
-    bucket_name = self.config['bucket_name']
-
-    downloaded_filename = self.download('recent')
-    transformed_local_filename = self.transform(downloaded_filename)
-    self.load(transformed_local_filename)
 
 def main():
+  """Process is:
+    Step 1 - Download from NVD json feeds.
+    Step 2 - Decompress tar.gz json data and return a dict.
+    Step 3 - Transform the dict into newline delimited json.
+    Step 4 - Load the json into GCS and import to BQ.
+  """
   bqnvd = BQNVD()
+
   if not bqnvd.check_bootstrap():
     bqnvd.incremental()
 

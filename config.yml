@@ -12,3 +12,12 @@ dataset: 'nvd_test'
 
 # Relative path to BigQuery NVD dataset schema
 nvd_schema: './schema.json'
+
+# NVD URL base
+url_base: 'https://nvd.nist.gov/feeds/json/cve/1.1/'
+
+# NVD file prefix
+file_prefix: 'nvdcve-1.1-'
+
+# NVD file suffix
+file_suffix: '.json.gz'
