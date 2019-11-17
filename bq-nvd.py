@@ -17,6 +17,7 @@ from bq_nvd.etl import ETL
 class BQNVD(object):
 
   def __init__(self):
+    # todo: when kube-ifying this, make all config settings environment vars
     with open('./config.yml', 'r') as f:
       try:
         self.config = yaml.safe_load(f)
@@ -29,19 +30,27 @@ class BQNVD(object):
     except DefaultCredentialsError as e:
       self.print_error_and_exit('error initializing BQ client: ', str(e), 1)
 
+  # todo: make more clear and comment
+
   @staticmethod
   def print_debug(message):
+    # debugging to stdout because this is going in GKE and Stackdriver will
+    # pick it up that way
     print('+++ bq-ndv.py debug: ' + message)
 
   @staticmethod
   def print_error_and_exit(message, exception, signal):
+    # Same deal as print_debug, we want this to go to stdout so Stackdriver
+    # logging will capture it from GKE
     print(message + ': ' + str(exception))
     traceback.print_exc(file=sys.stdout)
     sys.exit(signal)
 
   def bootstrap(self):
+    # process the entirety of NVD
     self.print_debug('bootstrapping')
     current_year = datetime.now().year
+
     for year in range(2002, current_year + 1):
       downloaded_filename = self.download(str(year))
       transformed_local_filename = self.transform(downloaded_filename)
@@ -62,21 +71,23 @@ class BQNVD(object):
     except TypeError as e:
       self.print_error_and_exit('count_cves failed on dataset ' + dataset, e, 1)
 
-    if cve_count == 0:
+    # There are over 130k CVEs in the NVD, so if it looks like there aren't
+    # enough, either we've never bootstrapped or something's gone wrong. So
+    # either way, we'll bootstrap.
+    if cve_count < 130000:
       self.bootstrap()
       return True
     else:
       return False
 
-  def transform(self, downloaded_filename, deltas_only=False):
+  def transform(self, downloaded_filename):
     self.print_debug('transforming ' + downloaded_filename)
     try:
       nvd_data = self.etl.extract(downloaded_filename)
       transformed_local_filename = self.etl.transform(nvd_data,
                                                       os.path.basename(
                                                           downloaded_filename),
-                                                      self.bq,
-                                                      deltas_only)
+                                                      self.bq)
     except (ValueError, TypeError, JSONDecodeError) as e:
       self.print_error_and_exit('extraction failed for ' + downloaded_filename, e, 1)
 
@@ -94,8 +105,7 @@ class BQNVD(object):
     bucket_name = self.config['bucket_name']
 
     downloaded_filename = self.download('recent')
-    transformed_local_filename = self.transform(downloaded_filename,
-                                                deltas_only=True)
+    transformed_local_filename = self.transform(downloaded_filename)
     self.load(transformed_local_filename)
 
 def main():

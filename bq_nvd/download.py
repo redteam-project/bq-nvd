@@ -5,6 +5,7 @@ from urllib.error import ContentTooShortError
 class Download(object):
 
   def __init__(self):
+    # todo: parameterize these strings in GKE deployment config
     self.url_base = 'https://nvd.nist.gov/feeds/json/cve/1.1/'
 
     # The desired file name will go inbetween prefix and suffix, see download

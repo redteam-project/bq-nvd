@@ -163,6 +163,18 @@ class BQ(object):
     return cve_list
 
   def load_from_gcs(self, dataset, uri):
+    """Bulk load newline delimited json from GCS into BQ
+
+    Args:
+      dataset: the BQ dataset
+      uri: the GCS uri of the newline delimited json
+
+    Returns:
+      None
+
+    Raises:
+      None
+    """
     project_name = self.config['project']
     dataset_name = project_name + '.' + dataset
     table_name = 'nvd'
@@ -172,10 +184,14 @@ class BQ(object):
     job_config = bigquery.LoadJobConfig()
     job_config.schema = self.parse_bq_json_schema()
     job_config.source_format = bigquery.SourceFormat.NEWLINE_DELIMITED_JSON
+
+    # We're going to call this synchronously so that our set calculations
+    # are correct
     load_job = self.client.load_table_from_uri(
         uri,
         dataset_ref.table(table_name),
         job_config=job_config,
     )
+    load_job.result()
 
 
