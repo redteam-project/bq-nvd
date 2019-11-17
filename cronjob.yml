@@ -1,0 +1,41 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: bq-nvd
+spec:
+  schedule: "*/20 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          volumes:
+          - name: google-cloud-key
+            secret:
+              secretName: bq-nvd-iam
+          containers:
+          - name: bq-nvd
+            image: gcr.io/red-team-project/bq-nvd:v1
+            volumeMounts:
+            - name: google-cloud-key
+              mountPath: /var/secrets/google
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+            - name: local_path
+              value: /usr/local/bq-nvd
+            - name: nvd_schema
+              value: ./schema.json
+            - name: url_base
+              value: https://nvd.nist.gov/feeds/json/cve/1.1/
+            - name: file_prefix
+              value: nvdcve-1.1-
+            - name: file_suffix
+              value: .json.gz
+            # Change the following variables to match your project
+            - name: bucket_name
+              value: redteam_bq-nvd
+            - name: project
+              value: red-team-project
+            - name: dataset
+              value: bq_nvd
+          restartPolicy: Never
