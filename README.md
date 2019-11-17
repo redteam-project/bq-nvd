@@ -8,7 +8,7 @@ You can query the Red Team Project's public dataset (red-team-project:bq_nvd.nvd
 
 ## GCP Setup
 
-This project depends on serveral Google Cloud services. If you don't already have an account, you can set one up [for free](https://cloud.google.com/free/). Most of what's being described in this project should fall under that free tier, but before setting up your own [GKE cluster](https://cloud.google.com/kubernetes-engine/), be sure to explore the [GCP Calculator](https://cloud.google.com/products/calculator/) so you'll know if you will incur any costs.
+This project depends upon several Google Cloud services. If you don't already have an account, you can set one up [for free](https://cloud.google.com/free/). Most of what's being described in this project should fall under that free tier, but before setting up your own [GKE cluster](https://cloud.google.com/kubernetes-engine/), be sure to explore the [GCP Calculator](https://cloud.google.com/products/calculator/) so you'll know if you will incur any costs.
 
 ## Usage
 
@@ -30,7 +30,7 @@ Counting all entries:
 bq query --project_id red-team-project "SELECT COUNT(cve.CVE_data_meta.ID) as CVE_Count FROM bq_nvd.nvd"
 ```
 
-Return all Linux CVEs (remove the `LIMIT 1` if you really want to do this, there are over 8,000):
+Return all Linux CVEs (remove the `LIMIT 1` if you really want to do this, there are more than 8,000):
 
 ```
 cat <<EOF >query.txt
