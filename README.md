@@ -1,8 +1,10 @@
-# BigQuery National Vulnerability Database (bq-nvd)
+# BigQuery National Vulnerability Database Mirror (bq-nvd)
 
 This project mirrors the [National Vulnerability Database](https://nvd.nist.gov/) (NVD) in Google Cloud BigQuery.
 
-You can query the Red Team Project's public dataset (red-team-project:bq_nvd.nvd) as an authenticated cloud user. Or you can run your own bq-nvd mirror in your GCP project. See the Usage section for more details.
+Why would you want to do this? While the NVD's website has nice query features, there are advantages to having the entirety of NVD in a SQL-compliant data warehouse. This also enables you to join the NVD dataset with other datasets.
+
+You can query the Red Team Project's public dataset (red-team-project:bq_nvd.nvd) as an authenticated cloud user. Or you can run your own bq-nvd mirror in your GCP project. See the [Usage](#Usage) section for more details.
 
 ## GCP Setup
 
@@ -55,4 +57,114 @@ EOF
 bq query --project_id red-team-project --use_legacy_sql=false --format=prettyjson "`cat query.txt`"
 ```
 
-## Running locally
+## Maintaining your own dataset
+
+If you want to mirror NVD to your own data set, you can do so by running this tool locally. If you want to keep your mirror up to date, you can deploy this tool as a Kubernetes CronJob.
+
+In either case, the first thing you need to do is update the [config.yml](config.yml) file to match the details of your project. Modify the `project`, `dataset`, and `bucket_name` environment variables in the [CronJob spec](cronjob.yml) file if you're running in Kubernetes. See more below.
+
+You'll also need an IAM service account with the appropriate privileges, as well as its key.
+
+```
+gcloud iam service-accounts create bq-nvd
+gcloud projects add-iam-policy-binding my-project \
+  --member serviceAccount:bq-nvd@my-project.iam.gserviceaccount.com \
+  --role roles/storage.admin
+gcloud projects add-iam-policy-binding my-project \
+  --member serviceAccount:bq-nvd@my-project.iam.gserviceaccount.com \
+  --role roles/bigquery.admin
+gcloud iam service-accounts keys create ~/service-account-key.json \
+  --iam-account bq-nvd@my-project.iam.gserviceaccount.com
+```
+
+### Running locally
+
+Follow these steps to run this tool locally. Note that python3 and pip3 are required.
+
+1. Clone this repo
+
+```
+git clone https://github.com/redteam-project/bq-nvd
+```
+
+2. Modify the [config.yml](config.yml) file as indicated above.
+
+3. Install Python requirements
+
+```
+pip install -r requirements.txt
+```
+
+4. Invoke the tool
+
+```
+GOOGLE_APPLICATION_CREDENTIALS=~/service-account-key.json python ./by-etl.py
+```
+
+### Running from a local Docker container
+
+Another option is to run from a local Docker container. In this case, you specify environment variables at runtime and don't need to make any modifications to the source code.
+
+1. Build the container
+
+```
+git clone https://github.com/redteam-project/bq-nvd
+cd bq-nvd
+docker build -t bq-nvd .
+```
+
+2. Run the container, specifying your own `project`, `dataset`, and `bucket_name` environment variable values.
+
+```
+mkdir ~/keys
+mv ~/service-account-key.json ~/keys
+docker run \
+  -v ~/keys:/keys \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/keys/service-account-key.json \
+  -e local_path=/usr/local/bq_nvd/ \
+  -e bucket_name=redteam_bq-nvd \
+  -e project=red-team-project \
+  -e dataset=nvd_example \
+  -e nvd_schema='./schema.json' \
+  -e url_base=https://nvd.nist.gov/feeds/json/cve/1.1/ \
+  -e file_prefix=nvdcve-1.1- \
+  -e file_suffix=.json.gz \
+  bq-nvd
+```
+
+### Keeping your mirror up to date
+
+This tools is designed to run as a Kubernetes CronJob. Use the following instructions to create your own GKE cluster and deploy it as a CronJob.
+
+#### Creating a GKE cluster
+
+First, create the cluster.
+
+```
+gcloud container \
+  --project my-project \
+  clusters create my-cluster-1 \
+  --zone us-central1-a
+```
+
+Set up authentication.
+
+```
+gcloud container clusters get-credentials --zone us-central1-a my-cluster-1
+```
+
+Upload your service account key as a Kubernetes Secret. Learn more about GKE pod authentication (here)[https://cloud.google.com/kubernetes-engine/docs/tutorials/authenticating-to-cloud-platform]
+
+```
+kubectl create secret generic bq-nvd-iam --from-file=key.json=/path/to/service-account-key.json
+```
+
+Now, deploy the CronJob.
+
+```
+git clone https://github.com/redteam-project/bq-nvd
+cd bq-nvd
+kubectl apply -f cronjob.yml
+```
+
+You can adjust the `schedule` value in [cronjob.yml](cronjob.yml) to whatever periodicity you like.
