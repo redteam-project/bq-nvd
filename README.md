@@ -122,9 +122,9 @@ docker run \
   -v ~/keys:/keys \
   -e GOOGLE_APPLICATION_CREDENTIALS=/keys/service-account-key.json \
   -e local_path=/usr/local/bq_nvd/ \
-  -e bucket_name=redteam_bq-nvd \
-  -e project=red-team-project \
-  -e dataset=nvd_example \
+  -e bucket_name=bq_nvd_example \
+  -e project=my-project \
+  -e dataset=bq_nvd_example \
   -e nvd_schema='./schema.json' \
   -e url_base=https://nvd.nist.gov/feeds/json/cve/1.1/ \
   -e file_prefix=nvdcve-1.1- \
