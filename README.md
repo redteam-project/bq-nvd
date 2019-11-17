@@ -153,7 +153,7 @@ Set up authentication.
 gcloud container clusters get-credentials --zone us-central1-a my-cluster-1
 ```
 
-Upload your service account key as a Kubernetes Secret. Learn more about GKE pod authentication (here)[https://cloud.google.com/kubernetes-engine/docs/tutorials/authenticating-to-cloud-platform]
+Upload your service account key as a Kubernetes Secret. Learn more about GKE pod authentication [here](https://cloud.google.com/kubernetes-engine/docs/tutorials/authenticating-to-cloud-platform).
 
 ```
 kubectl create secret generic bq-nvd-iam --from-file=key.json=/path/to/service-account-key.json
