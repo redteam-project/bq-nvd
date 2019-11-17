@@ -92,7 +92,7 @@ class BQNVD(object):
     for year in range(2002, current_year + 1):
       downloaded_filename = self.download(str(year))
       nvd_dict = self.extract(downloaded_filename)
-      transformed_local_filename = self.transform(nvd_dict)
+      transformed_local_filename = self.transform(nvd_dict, downloaded_filename)
       self.load(transformed_local_filename)
 
   def incremental(self):
