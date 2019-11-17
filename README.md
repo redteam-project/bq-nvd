@@ -159,11 +159,19 @@ Upload your service account key as a Kubernetes Secret. Learn more about GKE pod
 kubectl create secret generic bq-nvd-iam --from-file=key.json=/path/to/service-account-key.json
 ```
 
+Build the container image, and push it to GCR.
+```
+gcloud auth configure-docker
+export PROJECT_ID=my-project
+git clone https://github.com/redteam-project/bq-nvd
+cd bq-nvd
+docker build -t gcr.io/${PROJECT_ID}/bq-nvd:v1 .
+docker push gcr.io/${PROJECT_ID}/bq-nvd:v1
+```
+
 Now, deploy the CronJob.
 
 ```
-git clone https://github.com/redteam-project/bq-nvd
-cd bq-nvd
 kubectl apply -f cronjob.yml
 ```
 
