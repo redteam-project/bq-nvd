@@ -41,7 +41,7 @@ class ETL(object):
       raise TypeError('gzip.open failed in ETL.extract: ' + str(e))
 
     try:
-      nvd_dict = json.loads(json_content)
+      nvd_dict = json.loads(json_content.decode('utf-8'))
     except json.JSONDecodeError as e:
       raise e
     except TypeError as e:
