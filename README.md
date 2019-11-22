@@ -28,7 +28,7 @@ Counting all entries:
 
 ```
 export PROJECT_ID=your-project-id
-bq query --project_id ${PROJECT_ID} --use_legacy_sql=false "SELECT COUNT(cve.CVE_data_meta.ID) as CVE_Count FROM `red-team-project.bq_nvd.nvd`"
+bq query --project_id ${PROJECT_ID} --use_legacy_sql=false "SELECT COUNT(cve.CVE_data_meta.ID) as CVE_Count FROM \`red-team-project.bq_nvd.nvd\`"
 ```
 
 Return all Linux CVEs (remove the `LIMIT 1` if you really want to do this, there are more than 8,000):
