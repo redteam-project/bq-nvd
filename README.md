@@ -18,7 +18,7 @@ Once you've logged into GCP, you can query this project's bq-nvd dataset, which 
 
 #### Setup
 
-You can use the following example queries from the [Google Cloud Console](https://console.cloud.google.com/bigquery), [gcloud SDK](https://cloud.google.com/sdk/), [client libraries](https://cloud.google.com/bigquery/docs/reference/libraries), or [BigQuery API])(https://cloud.google.com/bigquery/docs/reference/rest/). These examples assume usage of the `bq` component of the gcloud SDK.
+You can use the following example queries from the [Google Cloud Console](https://console.cloud.google.com/bigquery), [gcloud SDK](https://cloud.google.com/sdk/), [client libraries](https://cloud.google.com/bigquery/docs/reference/libraries), or [BigQuery API](https://cloud.google.com/bigquery/docs/reference/rest/). These examples assume usage of the `bq` component of the gcloud SDK.
 
 [gcloud SDK setup instructions](https://cloud.google.com/sdk/install)
 
