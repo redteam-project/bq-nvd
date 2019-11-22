@@ -27,17 +27,19 @@ You can use the following example queries from the [Google Cloud Console](https:
 Counting all entries:
 
 ```
-bq query --project_id red-team-project "SELECT COUNT(cve.CVE_data_meta.ID) as CVE_Count FROM bq_nvd.nvd"
+export PROJECT_ID=your-project-id
+bq query --project_id ${PROJECT_ID} --use_legacy_sql=false "SELECT COUNT(cve.CVE_data_meta.ID) as CVE_Count FROM `red-team-project.bq_nvd.nvd`"
 ```
 
 Return all Linux CVEs (remove the `LIMIT 1` if you really want to do this, there are more than 8,000):
 
 ```
+export PROJECT_ID=your-project-id
 cat <<EOF >query.txt
 SELECT
   *
 FROM
-  bq_nvd.nvd
+  \`red-team-project.bq_nvd.nvd\`
 WHERE
   EXISTS (
   SELECT
@@ -54,7 +56,7 @@ WHERE
       cpe_match.cpe23Uri LIKE '%linux%' ) )
 LIMIT 1
 EOF
-bq query --project_id red-team-project --use_legacy_sql=false --format=prettyjson "`cat query.txt`"
+bq query --project_id ${PROJECT_ID} --use_legacy_sql=false --format=prettyjson "`cat query.txt`"
 ```
 
 ## Maintaining your own dataset
@@ -162,7 +164,7 @@ kubectl create secret generic bq-nvd-iam --from-file=key.json=/path/to/service-a
 Build the container image, and push it to GCR.
 ```
 gcloud auth configure-docker
-export PROJECT_ID=my-project
+export PROJECT_ID=your-project-id
 git clone https://github.com/redteam-project/bq-nvd
 cd bq-nvd
 docker build -t gcr.io/${PROJECT_ID}/bq-nvd:v1 .
