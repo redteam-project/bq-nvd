@@ -190,6 +190,7 @@ class BQ(object):
     job_config = bigquery.LoadJobConfig()
     job_config.schema = self.parse_bq_json_schema()
     job_config.source_format = bigquery.SourceFormat.NEWLINE_DELIMITED_JSON
+    job_config.ignore_unknown_values = True
 
     # We're going to call this synchronously so that our set calculations
     # are correct

@@ -3,7 +3,6 @@ import json
 import os
 
 from google.cloud import storage
-from google.cloud.exceptions import Conflict, GoogleCloudError
 
 
 class ETL(object):
@@ -131,11 +130,8 @@ class ETL(object):
       GoogleCloudError: if there's an issue with uploading to GCS
     """
     storage_client = storage.Client()
-    try:
-      bucket = storage_client.create_bucket(bucket_name)
-    except Conflict as e:
-      # the bucket already exists, and that's ok
-      bucket = storage_client.get_bucket(bucket_name)
+    # the bucket should  already exists
+    bucket = storage_client.get_bucket(bucket_name)
 
     # I've noticed that from time to time the GCS upload will fail, so to be
     # safe we'll retry 3 times
