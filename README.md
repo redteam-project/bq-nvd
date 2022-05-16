@@ -1,7 +1,5 @@
 # BigQuery National Vulnerability Database Mirror (bq-nvd)
 
-**Note that as of May 2022 this project is no longer active.**
-
 This project mirrors the [National Vulnerability Database](https://nvd.nist.gov/) (NVD) in Google Cloud BigQuery.
 
 Why would you want to do this? While the NVD's website has nice query features, there are advantages to having the entirety of NVD in a SQL-compliant data warehouse. This also enables you to join the NVD dataset with other datasets.
